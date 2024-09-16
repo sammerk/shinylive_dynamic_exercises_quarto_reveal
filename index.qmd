@@ -21,6 +21,8 @@ library(shinyjs)
 library(dplyr)
 library(learnr)
 library(shinycssloaders)
+library(dplyr)
+library(ggplot2)
 
 
 ## UI #########################################################################
@@ -47,7 +49,8 @@ ui <- miniPage(
                    icon = icon("repeat")),
       actionButton("new_task", 
                    "Neue Aufgabe derselben Art",
-                   icon = icon("plus"))
+                   icon = icon("plus")),
+      plotOutput("plot")
     )      
   )  
 )
@@ -80,6 +83,12 @@ server <- function(input, output, session) {
   #     - reshuffle columns (without the first) to randomize order of questions
   #     - reshuffle rows to randomize order of answers & distractors
   
+  
+  ## senseles plot to test loading time for ggplot2
+  output$plot <- renderPlot( 
+      ggplot(mtcars, aes(x = mpg, y = wt)) +
+        geom_point()
+  )
   
   ## Parameter solution matrix for task  ####
   q_a_matrix_qshuffeled <- 
