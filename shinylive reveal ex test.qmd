@@ -12,11 +12,11 @@ Quarto enables you to weave together content and executable code into a finished
 ## A1
 ```{shinylive-r}
 #| standalone: true
-#| viewerHeight: 400
+#| viewerHeight: 800
 # Task Name: Deskriptive_Explanantive_Explorative_Studien ######################
 
 library(shiny)
-library(miniUI)
+library(bslib)
 library(shinyjs)
 library(dplyr)
 library(learnr)
@@ -24,20 +24,29 @@ library(shinycssloaders)
 
 
 ## UI #########################################################################
-ui <- miniPage(
+ui <- page_fillable(
   useShinyjs(),
-  miniContentPanel(
-    wellPanel(
-      h4("Aufgabe: Erkentnisinteresse in Forschungsfrage erkennen"),
+  card(
+      card_header(
+          "Aufgabe: Erkentnisinteresse in Forschungsfrage erkennen",
+          class = "bg-dark"),
+      card_body(
       htmlOutput("prompt_task")
+      )
     ),
-    shinyjs::hidden(wellPanel(id = "feedbackpanel_task",
+  shinyjs::hidden(card(
+      card_header(
+          "Feedback",
+          class = "bg-dark"),
+      card_body(
+          wellPanel(id = "feedbackpanel_task",
                               withSpinner(
                                 htmlOutput("feedback_task"),
                                 proxy.height = "50px",
-                                color = "#8cd000"))
-    ),
-    wellPanel(
+                                color = "#8cd000")))
+          )
+      ),
+    card(
       uiOutput("ui_answers_task"),
       actionButton("show_feedback_task", 
                    "Prüfe meine Lösung!",
@@ -49,7 +58,6 @@ ui <- miniPage(
                    "Neue Aufgabe derselben Art",
                    icon = icon("plus"))
     )      
-  )  
 )
 
 

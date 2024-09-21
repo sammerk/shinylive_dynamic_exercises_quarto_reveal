@@ -408,11 +408,11 @@
 <section id="a1" class="slide level2">
 <h2>A1</h2>
 <div class="sourceCode" id="cb1" data-engine="r"><pre class="sourceCode numberSource shinylive-r number-lines code-with-copy"><code class="sourceCode"><span id="cb1-1"><a href=""></a>#| standalone: true</span>
-<span id="cb1-2"><a href=""></a>#| viewerHeight: 400</span>
+<span id="cb1-2"><a href=""></a>#| viewerHeight: 800</span>
 <span id="cb1-3"><a href=""></a># Task Name: Deskriptive_Explanantive_Explorative_Studien ######################</span>
 <span id="cb1-4"><a href=""></a></span>
 <span id="cb1-5"><a href=""></a>library(shiny)</span>
-<span id="cb1-6"><a href=""></a>library(miniUI)</span>
+<span id="cb1-6"><a href=""></a>library(bslib)</span>
 <span id="cb1-7"><a href=""></a>library(shinyjs)</span>
 <span id="cb1-8"><a href=""></a>library(dplyr)</span>
 <span id="cb1-9"><a href=""></a>library(learnr)</span>
@@ -420,176 +420,184 @@
 <span id="cb1-11"><a href=""></a></span>
 <span id="cb1-12"><a href=""></a></span>
 <span id="cb1-13"><a href=""></a>## UI #########################################################################</span>
-<span id="cb1-14"><a href=""></a>ui &lt;- miniPage(</span>
+<span id="cb1-14"><a href=""></a>ui &lt;- page_fillable(</span>
 <span id="cb1-15"><a href=""></a>  useShinyjs(),</span>
-<span id="cb1-16"><a href=""></a>  miniContentPanel(</span>
-<span id="cb1-17"><a href=""></a>    wellPanel(</span>
-<span id="cb1-18"><a href=""></a>      h4("Aufgabe: Erkentnisinteresse in Forschungsfrage erkennen"),</span>
-<span id="cb1-19"><a href=""></a>      htmlOutput("prompt_task")</span>
-<span id="cb1-20"><a href=""></a>    ),</span>
-<span id="cb1-21"><a href=""></a>    shinyjs::hidden(wellPanel(id = "feedbackpanel_task",</span>
-<span id="cb1-22"><a href=""></a>                              withSpinner(</span>
-<span id="cb1-23"><a href=""></a>                                htmlOutput("feedback_task"),</span>
-<span id="cb1-24"><a href=""></a>                                proxy.height = "50px",</span>
-<span id="cb1-25"><a href=""></a>                                color = "#8cd000"))</span>
-<span id="cb1-26"><a href=""></a>    ),</span>
-<span id="cb1-27"><a href=""></a>    wellPanel(</span>
-<span id="cb1-28"><a href=""></a>      uiOutput("ui_answers_task"),</span>
-<span id="cb1-29"><a href=""></a>      actionButton("show_feedback_task", </span>
-<span id="cb1-30"><a href=""></a>                   "Prüfe meine Lösung!",</span>
-<span id="cb1-31"><a href=""></a>                   icon = icon("send")),</span>
-<span id="cb1-32"><a href=""></a>      actionButton("reshuffle_task", </span>
-<span id="cb1-33"><a href=""></a>                   "Diese Aufgabe wiederholen",</span>
-<span id="cb1-34"><a href=""></a>                   icon = icon("repeat")),</span>
-<span id="cb1-35"><a href=""></a>      actionButton("new_task", </span>
-<span id="cb1-36"><a href=""></a>                   "Neue Aufgabe derselben Art",</span>
-<span id="cb1-37"><a href=""></a>                   icon = icon("plus"))</span>
-<span id="cb1-38"><a href=""></a>    )      </span>
-<span id="cb1-39"><a href=""></a>  )  </span>
-<span id="cb1-40"><a href=""></a>)</span>
-<span id="cb1-41"><a href=""></a></span>
-<span id="cb1-42"><a href=""></a></span>
-<span id="cb1-43"><a href=""></a></span>
-<span id="cb1-44"><a href=""></a>server &lt;- function(input, output, session) {</span>
-<span id="cb1-45"><a href=""></a>  </span>
-<span id="cb1-46"><a href=""></a>  # Global functions ###########################################################</span>
-<span id="cb1-47"><a href=""></a>  ## round2 rounds .5 upwards</span>
-<span id="cb1-48"><a href=""></a>  round2 = function(x, n) {</span>
-<span id="cb1-49"><a href=""></a>    posneg = sign(x)</span>
-<span id="cb1-50"><a href=""></a>    z = abs(x)*10^n</span>
-<span id="cb1-51"><a href=""></a>    z = z + 0.5 + sqrt(.Machine$double.eps)</span>
-<span id="cb1-52"><a href=""></a>    z = trunc(z)</span>
-<span id="cb1-53"><a href=""></a>    z = z/10^n</span>
-<span id="cb1-54"><a href=""></a>    z*posneg</span>
-<span id="cb1-55"><a href=""></a>  }</span>
-<span id="cb1-56"><a href=""></a></span>
-<span id="cb1-57"><a href=""></a>  ##############################################################################</span>
-<span id="cb1-58"><a href=""></a>  # Backend for task  ##########################################################</span>
-<span id="cb1-59"><a href=""></a>  ##############################################################################</span>
-<span id="cb1-60"><a href=""></a>  </span>
-<span id="cb1-61"><a href=""></a>  # The global logic is to create a tibble containing  </span>
-<span id="cb1-62"><a href=""></a>  #      - answers &amp; distractors (column 1)</span>
-<span id="cb1-63"><a href=""></a>  #      - questions (headers of columns 2 - m)</span>
-<span id="cb1-64"><a href=""></a>  #      - correct solutions (columns 2 - m without headers)</span>
-<span id="cb1-65"><a href=""></a>  #</span>
-<span id="cb1-66"><a href=""></a>  # Then </span>
-<span id="cb1-67"><a href=""></a>  #     - reshuffle columns (without the first) to randomize order of questions</span>
-<span id="cb1-68"><a href=""></a>  #     - reshuffle rows to randomize order of answers &amp; distractors</span>
-<span id="cb1-69"><a href=""></a>  </span>
-<span id="cb1-70"><a href=""></a>  </span>
-<span id="cb1-71"><a href=""></a>  ## Parameter solution matrix for task  ####</span>
-<span id="cb1-72"><a href=""></a>  q_a_matrix_qshuffeled &lt;- </span>
-<span id="cb1-73"><a href=""></a>    tibble(</span>
-<span id="cb1-74"><a href=""></a>      Answers_and_Distractors = c("Deskriptive Studie", "Explanative Studie", "Explorative Studie"),</span>
-<span id="cb1-75"><a href=""></a>      `Ein Forscherteam geht der Frage nach, wie viele Studierende an Pädagogischen Hochschulen Eltern sind.` =  c(T,F,F), # adjust line 132 if coded 0/1</span>
-<span id="cb1-76"><a href=""></a>      `Ein Forscherteam sucht nach möglichen Einflussfaktoren elterlicher Unterstützung auf die schulbezogene Motivation ihrer Kinder.` =  c(F,F,T),</span>
-<span id="cb1-77"><a href=""></a>      `Ein Forscherteam untersucht, ob sich die positiven Effekte einer Lehrmethode bei der Anwendung in der Sekundarstufe auch für die Primarstufe replizieren lassen.` =  c(F,T,F),</span>
-<span id="cb1-78"><a href=""></a>      `Ein Forscherteam erfasst die Altersstruktur der angestellten Lehrkräfte zum Stichtag 01.01.2022.` =  c(T,F,F),</span>
-<span id="cb1-79"><a href=""></a>      `Ein Forscherteam geht der Frage nach, ob die simultane Präsentation von Bild und Ton entsprechend der Dual Code Theory auch den Erwerb von Wörtern einer Fremdsprache fördert.` =  c(F,T,F),</span>
-<span id="cb1-80"><a href=""></a>      `Ein Forscherteam sucht nach personellen Faktoren, die mit Studienerfolg einhergehen.` =  c(F,F,T),</span>
-<span id="cb1-81"><a href=""></a>      `Ein Forscherteam untersucht die Anzahl von Schüler*innen mit Deutsch als Zweitsprache in den verschiedenen Stadtteilen von Karlsruhe. ` =  c(T,F,F),</span>
-<span id="cb1-82"><a href=""></a>      `Ein Forscherteam untersucht die Hypothese, ob das Lernen mit Pausen (spaced learning) schon bei Kindern im Grundschulalter zu besseren Lernleistungen im Vergleich zu massiertem Lernen führt.` =  c(F,T,F),</span>
-<span id="cb1-83"><a href=""></a>      `Ein Forscherteam sucht nach Faktoren, die den Abbruch des Lehramtsstudiums in höheren Fachsemestern beeinflussen.` =  c(F,F,T)) %&gt;% </span>
-<span id="cb1-84"><a href=""></a>    # shuffle order of questions</span>
-<span id="cb1-85"><a href=""></a>    relocate(1, 2, sample(3:ncol(.), ncol(.) - 2))</span>
-<span id="cb1-86"><a href=""></a>  </span>
-<span id="cb1-87"><a href=""></a>  ## Number of </span>
-<span id="cb1-88"><a href=""></a>  </span>
-<span id="cb1-89"><a href=""></a>  ## Shuffle answers</span>
-<span id="cb1-90"><a href=""></a>  q_a_matrix_qashuffeled &lt;- </span>
-<span id="cb1-91"><a href=""></a>    reactive({</span>
-<span id="cb1-92"><a href=""></a>      input$reshuffle_task # answer shuffelling induced by both buttons</span>
-<span id="cb1-93"><a href=""></a>      input$new_task</span>
-<span id="cb1-94"><a href=""></a>      </span>
-<span id="cb1-95"><a href=""></a>      q_a_matrix_qshuffeled %&gt;%</span>
-<span id="cb1-96"><a href=""></a>        sample_frac(., size = 1)</span>
-<span id="cb1-97"><a href=""></a>    })</span>
-<span id="cb1-98"><a href=""></a>  </span>
-<span id="cb1-99"><a href=""></a>  ## Select task </span>
-<span id="cb1-100"><a href=""></a>  nth_task &lt;- reactive({</span>
-<span id="cb1-101"><a href=""></a>    # starting with 1</span>
-<span id="cb1-102"><a href=""></a>    (as.numeric(input$new_task) %% (ncol(q_a_matrix_qshuffeled) - 1)) + 1</span>
-<span id="cb1-103"><a href=""></a>  })</span>
-<span id="cb1-104"><a href=""></a>  </span>
-<span id="cb1-105"><a href=""></a>  </span>
-<span id="cb1-106"><a href=""></a>  ## Render UI for Answers ###</span>
-<span id="cb1-107"><a href=""></a>  output$ui_answers_task &lt;- renderUI({</span>
-<span id="cb1-108"><a href=""></a>    input$reshuffle_task</span>
-<span id="cb1-109"><a href=""></a>    input$new_task</span>
-<span id="cb1-110"><a href=""></a>    radioButtons(</span>
-<span id="cb1-111"><a href=""></a>      "answers_task",</span>
-<span id="cb1-112"><a href=""></a>      "Bitte ankreuzen",</span>
-<span id="cb1-113"><a href=""></a>      q_a_matrix_qashuffeled() %&gt;% </span>
-<span id="cb1-114"><a href=""></a>        select(1, nth_task() + 1) %&gt;% </span>
-<span id="cb1-115"><a href=""></a>        na.omit(.) %&gt;% </span>
-<span id="cb1-116"><a href=""></a>        pull(Answers_and_Distractors),</span>
-<span id="cb1-117"><a href=""></a>      selected = character(0)</span>
-<span id="cb1-118"><a href=""></a>    )</span>
-<span id="cb1-119"><a href=""></a>  })</span>
-<span id="cb1-120"><a href=""></a>  </span>
-<span id="cb1-121"><a href=""></a>  ## Prompt task </span>
-<span id="cb1-122"><a href=""></a>  output$prompt_task &lt;- renderText({</span>
-<span id="cb1-123"><a href=""></a>    paste(names(q_a_matrix_qashuffeled())[2:ncol(q_a_matrix_qshuffeled)][nth_task()],</span>
-<span id="cb1-124"><a href=""></a>          "&lt;br&gt;&lt;b&gt;Wird dabei eine deskriptive, explanative oder explorative Studie durchgeführt?&lt;/b&gt;")</span>
-<span id="cb1-125"><a href=""></a>  }) </span>
-<span id="cb1-126"><a href=""></a>  </span>
-<span id="cb1-127"><a href=""></a>  ## Correct answers ###</span>
-<span id="cb1-128"><a href=""></a>  correct_answers_task &lt;- reactive({</span>
-<span id="cb1-129"><a href=""></a>    </span>
-<span id="cb1-130"><a href=""></a>    vector_of_correct_answers &lt;- </span>
-<span id="cb1-131"><a href=""></a>      q_a_matrix_qashuffeled() %&gt;% </span>
-<span id="cb1-132"><a href=""></a>      pull(nth_task() + 1)</span>
-<span id="cb1-133"><a href=""></a>    </span>
-<span id="cb1-134"><a href=""></a>    correct_answers_task &lt;- </span>
-<span id="cb1-135"><a href=""></a>      q_a_matrix_qashuffeled() %&gt;%</span>
-<span id="cb1-136"><a href=""></a>      filter(vector_of_correct_answers == T) %&gt;%</span>
-<span id="cb1-137"><a href=""></a>      pull(Answers_and_Distractors)</span>
-<span id="cb1-138"><a href=""></a>    </span>
-<span id="cb1-139"><a href=""></a>    return(correct_answers_task)</span>
-<span id="cb1-140"><a href=""></a>  })</span>
-<span id="cb1-141"><a href=""></a>  </span>
-<span id="cb1-142"><a href=""></a>  ## Feedback task  ####</span>
-<span id="cb1-143"><a href=""></a>  output$feedback_task &lt;- renderText({   </span>
-<span id="cb1-144"><a href=""></a>    </span>
-<span id="cb1-145"><a href=""></a>    if(is.null(input$answers_task)){</span>
-<span id="cb1-146"><a href=""></a>      HTML(paste("&lt;b&gt;Leider nicht korrekt!&lt;/b&gt; Richtig wäre:  &lt;br&gt;✓ ", </span>
-<span id="cb1-147"><a href=""></a>                 paste(correct_answers_task(), collapse = ", &lt;br&gt;✓ "),</span>
-<span id="cb1-148"><a href=""></a>                 "&lt;br&gt;&lt;i&gt;",</span>
-<span id="cb1-149"><a href=""></a>                 learnr::random_encouragement(),</span>
-<span id="cb1-150"><a href=""></a>                 "&lt;/i&gt;"))</span>
-<span id="cb1-151"><a href=""></a>    }else{</span>
-<span id="cb1-152"><a href=""></a>      if(setequal(correct_answers_task(), input$answers_task)){</span>
-<span id="cb1-153"><a href=""></a>        paste("Richtig!", learnr::random_praise())}else{</span>
-<span id="cb1-154"><a href=""></a>          HTML(paste("&lt;b&gt;Leider nicht korrekt!&lt;/b&gt; Richtig wäre:  &lt;br&gt;✓ ", </span>
-<span id="cb1-155"><a href=""></a>                     paste(correct_answers_task(), collapse = ", &lt;br&gt;✓ "),</span>
-<span id="cb1-156"><a href=""></a>                     "&lt;br&gt;&lt;i&gt;",</span>
-<span id="cb1-157"><a href=""></a>                     learnr::random_encouragement(),</span>
-<span id="cb1-158"><a href=""></a>                     "&lt;/i&gt;"))</span>
-<span id="cb1-159"><a href=""></a>        }</span>
-<span id="cb1-160"><a href=""></a>    }</span>
-<span id="cb1-161"><a href=""></a>  })</span>
-<span id="cb1-162"><a href=""></a>  </span>
-<span id="cb1-163"><a href=""></a>  ## Show and Hide Feedback ####################################################</span>
-<span id="cb1-164"><a href=""></a>  ## Show feedback on button click </span>
-<span id="cb1-165"><a href=""></a>  observeEvent(input$show_feedback_task, {</span>
-<span id="cb1-166"><a href=""></a>    showElement(id = "feedbackpanel_task")</span>
-<span id="cb1-167"><a href=""></a>  })</span>
-<span id="cb1-168"><a href=""></a>  </span>
-<span id="cb1-169"><a href=""></a>  ## Hide feedback on solution change or new plot type</span>
-<span id="cb1-170"><a href=""></a>  observeEvent(c(input$answers_task, input$new_task), {</span>
-<span id="cb1-171"><a href=""></a>    hideElement(id = "feedbackpanel_task")</span>
-<span id="cb1-172"><a href=""></a>  })</span>
-<span id="cb1-173"><a href=""></a>  </span>
-<span id="cb1-174"><a href=""></a>  ## Reset answer on new plot type</span>
-<span id="cb1-175"><a href=""></a>  observeEvent(c(input$reshuffle_task, input$new_task), {</span>
-<span id="cb1-176"><a href=""></a>    reset(id = "answers_task")</span>
-<span id="cb1-177"><a href=""></a>  })</span>
-<span id="cb1-178"><a href=""></a>  </span>
-<span id="cb1-179"><a href=""></a>}</span>
-<span id="cb1-180"><a href=""></a></span>
-<span id="cb1-181"><a href=""></a></span>
-<span id="cb1-182"><a href=""></a># Create Shiny object</span>
-<span id="cb1-183"><a href=""></a>shinyApp(ui = ui, server = server)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<span id="cb1-16"><a href=""></a>  card(</span>
+<span id="cb1-17"><a href=""></a>      card_header(</span>
+<span id="cb1-18"><a href=""></a>          "Aufgabe: Erkentnisinteresse in Forschungsfrage erkennen",</span>
+<span id="cb1-19"><a href=""></a>          class = "bg-dark"),</span>
+<span id="cb1-20"><a href=""></a>      card_body(</span>
+<span id="cb1-21"><a href=""></a>      htmlOutput("prompt_task")</span>
+<span id="cb1-22"><a href=""></a>      )</span>
+<span id="cb1-23"><a href=""></a>    ),</span>
+<span id="cb1-24"><a href=""></a>  shinyjs::hidden(card(</span>
+<span id="cb1-25"><a href=""></a>      card_header(</span>
+<span id="cb1-26"><a href=""></a>          "Feedback",</span>
+<span id="cb1-27"><a href=""></a>          class = "bg-dark"),</span>
+<span id="cb1-28"><a href=""></a>      card_body(</span>
+<span id="cb1-29"><a href=""></a>          wellPanel(id = "feedbackpanel_task",</span>
+<span id="cb1-30"><a href=""></a>                              withSpinner(</span>
+<span id="cb1-31"><a href=""></a>                                htmlOutput("feedback_task"),</span>
+<span id="cb1-32"><a href=""></a>                                proxy.height = "50px",</span>
+<span id="cb1-33"><a href=""></a>                                color = "#8cd000")))</span>
+<span id="cb1-34"><a href=""></a>          )</span>
+<span id="cb1-35"><a href=""></a>      ),</span>
+<span id="cb1-36"><a href=""></a>    card(</span>
+<span id="cb1-37"><a href=""></a>      uiOutput("ui_answers_task"),</span>
+<span id="cb1-38"><a href=""></a>      actionButton("show_feedback_task", </span>
+<span id="cb1-39"><a href=""></a>                   "Prüfe meine Lösung!",</span>
+<span id="cb1-40"><a href=""></a>                   icon = icon("send")),</span>
+<span id="cb1-41"><a href=""></a>      actionButton("reshuffle_task", </span>
+<span id="cb1-42"><a href=""></a>                   "Diese Aufgabe wiederholen",</span>
+<span id="cb1-43"><a href=""></a>                   icon = icon("repeat")),</span>
+<span id="cb1-44"><a href=""></a>      actionButton("new_task", </span>
+<span id="cb1-45"><a href=""></a>                   "Neue Aufgabe derselben Art",</span>
+<span id="cb1-46"><a href=""></a>                   icon = icon("plus"))</span>
+<span id="cb1-47"><a href=""></a>    )      </span>
+<span id="cb1-48"><a href=""></a>)</span>
+<span id="cb1-49"><a href=""></a></span>
+<span id="cb1-50"><a href=""></a></span>
+<span id="cb1-51"><a href=""></a></span>
+<span id="cb1-52"><a href=""></a>server &lt;- function(input, output, session) {</span>
+<span id="cb1-53"><a href=""></a>  </span>
+<span id="cb1-54"><a href=""></a>  # Global functions ###########################################################</span>
+<span id="cb1-55"><a href=""></a>  ## round2 rounds .5 upwards</span>
+<span id="cb1-56"><a href=""></a>  round2 = function(x, n) {</span>
+<span id="cb1-57"><a href=""></a>    posneg = sign(x)</span>
+<span id="cb1-58"><a href=""></a>    z = abs(x)*10^n</span>
+<span id="cb1-59"><a href=""></a>    z = z + 0.5 + sqrt(.Machine$double.eps)</span>
+<span id="cb1-60"><a href=""></a>    z = trunc(z)</span>
+<span id="cb1-61"><a href=""></a>    z = z/10^n</span>
+<span id="cb1-62"><a href=""></a>    z*posneg</span>
+<span id="cb1-63"><a href=""></a>  }</span>
+<span id="cb1-64"><a href=""></a></span>
+<span id="cb1-65"><a href=""></a>  ##############################################################################</span>
+<span id="cb1-66"><a href=""></a>  # Backend for task  ##########################################################</span>
+<span id="cb1-67"><a href=""></a>  ##############################################################################</span>
+<span id="cb1-68"><a href=""></a>  </span>
+<span id="cb1-69"><a href=""></a>  # The global logic is to create a tibble containing  </span>
+<span id="cb1-70"><a href=""></a>  #      - answers &amp; distractors (column 1)</span>
+<span id="cb1-71"><a href=""></a>  #      - questions (headers of columns 2 - m)</span>
+<span id="cb1-72"><a href=""></a>  #      - correct solutions (columns 2 - m without headers)</span>
+<span id="cb1-73"><a href=""></a>  #</span>
+<span id="cb1-74"><a href=""></a>  # Then </span>
+<span id="cb1-75"><a href=""></a>  #     - reshuffle columns (without the first) to randomize order of questions</span>
+<span id="cb1-76"><a href=""></a>  #     - reshuffle rows to randomize order of answers &amp; distractors</span>
+<span id="cb1-77"><a href=""></a>  </span>
+<span id="cb1-78"><a href=""></a>  </span>
+<span id="cb1-79"><a href=""></a>  ## Parameter solution matrix for task  ####</span>
+<span id="cb1-80"><a href=""></a>  q_a_matrix_qshuffeled &lt;- </span>
+<span id="cb1-81"><a href=""></a>    tibble(</span>
+<span id="cb1-82"><a href=""></a>      Answers_and_Distractors = c("Deskriptive Studie", "Explanative Studie", "Explorative Studie"),</span>
+<span id="cb1-83"><a href=""></a>      `Ein Forscherteam geht der Frage nach, wie viele Studierende an Pädagogischen Hochschulen Eltern sind.` =  c(T,F,F), # adjust line 132 if coded 0/1</span>
+<span id="cb1-84"><a href=""></a>      `Ein Forscherteam sucht nach möglichen Einflussfaktoren elterlicher Unterstützung auf die schulbezogene Motivation ihrer Kinder.` =  c(F,F,T),</span>
+<span id="cb1-85"><a href=""></a>      `Ein Forscherteam untersucht, ob sich die positiven Effekte einer Lehrmethode bei der Anwendung in der Sekundarstufe auch für die Primarstufe replizieren lassen.` =  c(F,T,F),</span>
+<span id="cb1-86"><a href=""></a>      `Ein Forscherteam erfasst die Altersstruktur der angestellten Lehrkräfte zum Stichtag 01.01.2022.` =  c(T,F,F),</span>
+<span id="cb1-87"><a href=""></a>      `Ein Forscherteam geht der Frage nach, ob die simultane Präsentation von Bild und Ton entsprechend der Dual Code Theory auch den Erwerb von Wörtern einer Fremdsprache fördert.` =  c(F,T,F),</span>
+<span id="cb1-88"><a href=""></a>      `Ein Forscherteam sucht nach personellen Faktoren, die mit Studienerfolg einhergehen.` =  c(F,F,T),</span>
+<span id="cb1-89"><a href=""></a>      `Ein Forscherteam untersucht die Anzahl von Schüler*innen mit Deutsch als Zweitsprache in den verschiedenen Stadtteilen von Karlsruhe. ` =  c(T,F,F),</span>
+<span id="cb1-90"><a href=""></a>      `Ein Forscherteam untersucht die Hypothese, ob das Lernen mit Pausen (spaced learning) schon bei Kindern im Grundschulalter zu besseren Lernleistungen im Vergleich zu massiertem Lernen führt.` =  c(F,T,F),</span>
+<span id="cb1-91"><a href=""></a>      `Ein Forscherteam sucht nach Faktoren, die den Abbruch des Lehramtsstudiums in höheren Fachsemestern beeinflussen.` =  c(F,F,T)) %&gt;% </span>
+<span id="cb1-92"><a href=""></a>    # shuffle order of questions</span>
+<span id="cb1-93"><a href=""></a>    relocate(1, 2, sample(3:ncol(.), ncol(.) - 2))</span>
+<span id="cb1-94"><a href=""></a>  </span>
+<span id="cb1-95"><a href=""></a>  ## Number of </span>
+<span id="cb1-96"><a href=""></a>  </span>
+<span id="cb1-97"><a href=""></a>  ## Shuffle answers</span>
+<span id="cb1-98"><a href=""></a>  q_a_matrix_qashuffeled &lt;- </span>
+<span id="cb1-99"><a href=""></a>    reactive({</span>
+<span id="cb1-100"><a href=""></a>      input$reshuffle_task # answer shuffelling induced by both buttons</span>
+<span id="cb1-101"><a href=""></a>      input$new_task</span>
+<span id="cb1-102"><a href=""></a>      </span>
+<span id="cb1-103"><a href=""></a>      q_a_matrix_qshuffeled %&gt;%</span>
+<span id="cb1-104"><a href=""></a>        sample_frac(., size = 1)</span>
+<span id="cb1-105"><a href=""></a>    })</span>
+<span id="cb1-106"><a href=""></a>  </span>
+<span id="cb1-107"><a href=""></a>  ## Select task </span>
+<span id="cb1-108"><a href=""></a>  nth_task &lt;- reactive({</span>
+<span id="cb1-109"><a href=""></a>    # starting with 1</span>
+<span id="cb1-110"><a href=""></a>    (as.numeric(input$new_task) %% (ncol(q_a_matrix_qshuffeled) - 1)) + 1</span>
+<span id="cb1-111"><a href=""></a>  })</span>
+<span id="cb1-112"><a href=""></a>  </span>
+<span id="cb1-113"><a href=""></a>  </span>
+<span id="cb1-114"><a href=""></a>  ## Render UI for Answers ###</span>
+<span id="cb1-115"><a href=""></a>  output$ui_answers_task &lt;- renderUI({</span>
+<span id="cb1-116"><a href=""></a>    input$reshuffle_task</span>
+<span id="cb1-117"><a href=""></a>    input$new_task</span>
+<span id="cb1-118"><a href=""></a>    radioButtons(</span>
+<span id="cb1-119"><a href=""></a>      "answers_task",</span>
+<span id="cb1-120"><a href=""></a>      "Bitte ankreuzen",</span>
+<span id="cb1-121"><a href=""></a>      q_a_matrix_qashuffeled() %&gt;% </span>
+<span id="cb1-122"><a href=""></a>        select(1, nth_task() + 1) %&gt;% </span>
+<span id="cb1-123"><a href=""></a>        na.omit(.) %&gt;% </span>
+<span id="cb1-124"><a href=""></a>        pull(Answers_and_Distractors),</span>
+<span id="cb1-125"><a href=""></a>      selected = character(0)</span>
+<span id="cb1-126"><a href=""></a>    )</span>
+<span id="cb1-127"><a href=""></a>  })</span>
+<span id="cb1-128"><a href=""></a>  </span>
+<span id="cb1-129"><a href=""></a>  ## Prompt task </span>
+<span id="cb1-130"><a href=""></a>  output$prompt_task &lt;- renderText({</span>
+<span id="cb1-131"><a href=""></a>    paste(names(q_a_matrix_qashuffeled())[2:ncol(q_a_matrix_qshuffeled)][nth_task()],</span>
+<span id="cb1-132"><a href=""></a>          "&lt;br&gt;&lt;b&gt;Wird dabei eine deskriptive, explanative oder explorative Studie durchgeführt?&lt;/b&gt;")</span>
+<span id="cb1-133"><a href=""></a>  }) </span>
+<span id="cb1-134"><a href=""></a>  </span>
+<span id="cb1-135"><a href=""></a>  ## Correct answers ###</span>
+<span id="cb1-136"><a href=""></a>  correct_answers_task &lt;- reactive({</span>
+<span id="cb1-137"><a href=""></a>    </span>
+<span id="cb1-138"><a href=""></a>    vector_of_correct_answers &lt;- </span>
+<span id="cb1-139"><a href=""></a>      q_a_matrix_qashuffeled() %&gt;% </span>
+<span id="cb1-140"><a href=""></a>      pull(nth_task() + 1)</span>
+<span id="cb1-141"><a href=""></a>    </span>
+<span id="cb1-142"><a href=""></a>    correct_answers_task &lt;- </span>
+<span id="cb1-143"><a href=""></a>      q_a_matrix_qashuffeled() %&gt;%</span>
+<span id="cb1-144"><a href=""></a>      filter(vector_of_correct_answers == T) %&gt;%</span>
+<span id="cb1-145"><a href=""></a>      pull(Answers_and_Distractors)</span>
+<span id="cb1-146"><a href=""></a>    </span>
+<span id="cb1-147"><a href=""></a>    return(correct_answers_task)</span>
+<span id="cb1-148"><a href=""></a>  })</span>
+<span id="cb1-149"><a href=""></a>  </span>
+<span id="cb1-150"><a href=""></a>  ## Feedback task  ####</span>
+<span id="cb1-151"><a href=""></a>  output$feedback_task &lt;- renderText({   </span>
+<span id="cb1-152"><a href=""></a>    </span>
+<span id="cb1-153"><a href=""></a>    if(is.null(input$answers_task)){</span>
+<span id="cb1-154"><a href=""></a>      HTML(paste("&lt;b&gt;Leider nicht korrekt!&lt;/b&gt; Richtig wäre:  &lt;br&gt;✓ ", </span>
+<span id="cb1-155"><a href=""></a>                 paste(correct_answers_task(), collapse = ", &lt;br&gt;✓ "),</span>
+<span id="cb1-156"><a href=""></a>                 "&lt;br&gt;&lt;i&gt;",</span>
+<span id="cb1-157"><a href=""></a>                 learnr::random_encouragement(),</span>
+<span id="cb1-158"><a href=""></a>                 "&lt;/i&gt;"))</span>
+<span id="cb1-159"><a href=""></a>    }else{</span>
+<span id="cb1-160"><a href=""></a>      if(setequal(correct_answers_task(), input$answers_task)){</span>
+<span id="cb1-161"><a href=""></a>        paste("Richtig!", learnr::random_praise())}else{</span>
+<span id="cb1-162"><a href=""></a>          HTML(paste("&lt;b&gt;Leider nicht korrekt!&lt;/b&gt; Richtig wäre:  &lt;br&gt;✓ ", </span>
+<span id="cb1-163"><a href=""></a>                     paste(correct_answers_task(), collapse = ", &lt;br&gt;✓ "),</span>
+<span id="cb1-164"><a href=""></a>                     "&lt;br&gt;&lt;i&gt;",</span>
+<span id="cb1-165"><a href=""></a>                     learnr::random_encouragement(),</span>
+<span id="cb1-166"><a href=""></a>                     "&lt;/i&gt;"))</span>
+<span id="cb1-167"><a href=""></a>        }</span>
+<span id="cb1-168"><a href=""></a>    }</span>
+<span id="cb1-169"><a href=""></a>  })</span>
+<span id="cb1-170"><a href=""></a>  </span>
+<span id="cb1-171"><a href=""></a>  ## Show and Hide Feedback ####################################################</span>
+<span id="cb1-172"><a href=""></a>  ## Show feedback on button click </span>
+<span id="cb1-173"><a href=""></a>  observeEvent(input$show_feedback_task, {</span>
+<span id="cb1-174"><a href=""></a>    showElement(id = "feedbackpanel_task")</span>
+<span id="cb1-175"><a href=""></a>  })</span>
+<span id="cb1-176"><a href=""></a>  </span>
+<span id="cb1-177"><a href=""></a>  ## Hide feedback on solution change or new plot type</span>
+<span id="cb1-178"><a href=""></a>  observeEvent(c(input$answers_task, input$new_task), {</span>
+<span id="cb1-179"><a href=""></a>    hideElement(id = "feedbackpanel_task")</span>
+<span id="cb1-180"><a href=""></a>  })</span>
+<span id="cb1-181"><a href=""></a>  </span>
+<span id="cb1-182"><a href=""></a>  ## Reset answer on new plot type</span>
+<span id="cb1-183"><a href=""></a>  observeEvent(c(input$reshuffle_task, input$new_task), {</span>
+<span id="cb1-184"><a href=""></a>    reset(id = "answers_task")</span>
+<span id="cb1-185"><a href=""></a>  })</span>
+<span id="cb1-186"><a href=""></a>  </span>
+<span id="cb1-187"><a href=""></a>}</span>
+<span id="cb1-188"><a href=""></a></span>
+<span id="cb1-189"><a href=""></a></span>
+<span id="cb1-190"><a href=""></a># Create Shiny object</span>
+<span id="cb1-191"><a href=""></a>shinyApp(ui = ui, server = server)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </section>
 <section id="a" class="slide level2">
 <h2>A</h2>
